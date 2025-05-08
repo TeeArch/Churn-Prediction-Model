@@ -11,7 +11,7 @@ model = load_model('model.h5')
 st.set_page_config(page_title="Churn Prediction with ANN", layout="centered")
 st.title("📊 Churn Prediction with ANN")
 
-# Initialize a standard scaler (but do not fit yet)
+# Initialize scaler
 scaler = StandardScaler()
 
 # File Upload Section
@@ -29,17 +29,22 @@ if uploaded_file is not None:
         data = pd.read_csv(uploaded_file)
         st.write("### Uploaded Data Preview", data.head())
 
+        # Selecting relevant features
         features = data[['CreditScore', 'Geography', 'Gender', 'Age', 'Tenure',
                          'Balance', 'NumOfProducts', 'HasCrCard',
                          'IsActiveMember', 'EstimatedSalary']]
         
-        # Encoding categorical values
-        features['Geography'] = features['Geography'].astype('category').cat.codes
-        features['Gender'] = features['Gender'].map({'Male': 1, 'Female': 0})
+        # One-Hot Encoding for Geography
+        features['Germany'] = (features['Geography'] == 'Germany').astype(int)
+        features['Spain'] = (features['Geography'] == 'Spain').astype(int)
+        features.drop(columns=['Geography'], inplace=True)
+        
+        # One-Hot Encoding for Gender
+        features['Male'] = (features['Gender'] == 'Male').astype(int)
+        features.drop(columns=['Gender'], inplace=True)
 
-        # Fit scaler on CSV data
+        # Scaling the data
         scaler.fit(features)
-
         predictions = predict_churn(features)
         data['Churn_Prediction'] = predictions
 
@@ -58,7 +63,7 @@ st.subheader("Or enter customer details manually")
 
 with st.form("manual_input_form"):
     CreditScore = st.number_input("Credit Score", min_value=300, max_value=900, value=650)
-    Geography = st.selectbox("Geography", ["France", "Spain", "Germany"])
+    Geography = st.selectbox("Geography", ["France", "Germany", "Spain"])
     Gender = st.selectbox("Gender", ["Male", "Female"])
     Age = st.number_input("Age", min_value=18, max_value=100, value=35)
     Tenure = st.slider("Tenure", 0, 10, 5)
@@ -71,27 +76,25 @@ with st.form("manual_input_form"):
     submit = st.form_submit_button("Predict Churn")
 
 if submit:
-    # Encode categorical values
-    Geography_code = {"France": 0, "Germany": 1, "Spain": 2}[Geography]
-    Gender_code = {"Male": 1, "Female": 0}[Gender]
+    # Encoding categorical values (One-Hot)
+    Germany = 1 if Geography == "Germany" else 0
+    Spain = 1 if Geography == "Spain" else 0
+    Male = 1 if Gender == "Male" else 0
 
-    # Create DataFrame for manual input
-    manual_input = pd.DataFrame([[CreditScore, Geography_code, Gender_code, Age, Tenure,
-                                  Balance, NumOfProducts, HasCrCard, IsActiveMember, EstimatedSalary]],
-                                columns=['CreditScore', 'Geography', 'Gender', 'Age', 'Tenure',
-                                         'Balance', 'NumOfProducts', 'HasCrCard', 'IsActiveMember', 'EstimatedSalary'])
-    
-    # Ensure the scaler is fitted before scaling
+    # Creating DataFrame for manual input
+    manual_input = pd.DataFrame([[CreditScore, Germany, Spain, Male, Age, Tenure,
+                                  Balance, NumOfProducts, HasCrCard, 
+                                  IsActiveMember, EstimatedSalary]],
+                                columns=['CreditScore', 'Germany', 'Spain', 'Male', 
+                                         'Age', 'Tenure', 'Balance', 'NumOfProducts', 
+                                         'HasCrCard', 'IsActiveMember', 'EstimatedSalary'])
+
+    # Ensure scaler is fitted before scaling
     if not uploaded_file:
-        # Default scaling values (replace with your model training scaler)
-        scaler.mean_ = [650, 1, 0, 35, 5, 50000, 1, 0, 0, 60000]
-        scaler.scale_ = [100, 1, 1, 20, 3, 20000, 1, 1, 1, 30000]
+        scaler.fit([[650, 0, 0, 1, 35, 5, 50000, 1, 1, 0, 60000]])  # Default fit for manual input
 
-    # Scale manual input and ensure correct shape
+    # Scale manual input using the same fitted scaler
     manual_input_scaled = scaler.transform(manual_input)
-    manual_input_scaled = manual_input_scaled.reshape(1, -1)  # Force shape (1, 10)
-
-    # Make prediction
     prediction = model.predict(manual_input_scaled)
     
     st.success(f"Prediction: {'Churn' if prediction[0][0] >= 0.5 else 'No Churn'}")
