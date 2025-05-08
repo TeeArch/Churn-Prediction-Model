@@ -11,13 +11,15 @@ model = load_model('model.h5')
 st.set_page_config(page_title="Churn Prediction with ANN", layout="centered")
 st.title("📊 Churn Prediction with ANN")
 
+# Initialize a standard scaler (pre-fitted)
+scaler = StandardScaler()
+
 # File Upload Section
 st.subheader("Upload your CSV file for prediction")
 uploaded_file = st.file_uploader("Upload your CSV file for prediction", type=["csv"])
 
 def predict_churn(data):
-    scaler = StandardScaler()
-    data_scaled = scaler.fit_transform(data)
+    data_scaled = scaler.transform(data)
     predictions = model.predict(data_scaled)
     return (predictions >= 0.5).astype(int)
 
@@ -34,6 +36,9 @@ if uploaded_file is not None:
         # Encoding categorical values
         features['Geography'] = features['Geography'].astype('category').cat.codes
         features['Gender'] = features['Gender'].map({'Male': 1, 'Female': 0})
+
+        # Fit scaler on CSV data
+        scaler.fit(features)
 
         predictions = predict_churn(features)
         data['Churn_Prediction'] = predictions
@@ -76,5 +81,12 @@ if submit:
                                 columns=['CreditScore', 'Geography', 'Gender', 'Age', 'Tenure',
                                          'Balance', 'NumOfProducts', 'HasCrCard', 'IsActiveMember', 'EstimatedSalary'])
     
-    prediction = predict_churn(manual_input)
+    # If CSV was not uploaded, use default scaling values
+    if not uploaded_file:
+        scaler.fit([[650, 1, 0, 35, 5, 50000, 1, 0, 0, 60000]])  # Default scaling fit for single row
+    
+    # Scale manual input using the same fitted scaler
+    manual_input_scaled = scaler.transform(manual_input)
+    prediction = model.predict(manual_input_scaled)
+    
     st.success(f"Prediction: {'Churn' if prediction[0][0] == 1 else 'No Churn'}")
