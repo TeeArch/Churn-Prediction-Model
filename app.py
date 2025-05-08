@@ -11,7 +11,7 @@ model = load_model('model.h5')
 st.set_page_config(page_title="Churn Prediction with ANN", layout="centered")
 st.title("📊 Churn Prediction with ANN")
 
-# Initialize the scaler (but do not fit yet)
+# Initialize a standard scaler (but do not fit yet)
 scaler = StandardScaler()
 
 # File Upload Section
@@ -81,14 +81,17 @@ if submit:
                                 columns=['CreditScore', 'Geography', 'Gender', 'Age', 'Tenure',
                                          'Balance', 'NumOfProducts', 'HasCrCard', 'IsActiveMember', 'EstimatedSalary'])
     
-    # Use default scaling values if CSV is not uploaded
+    # Ensure the scaler is fitted before scaling
     if not uploaded_file:
-        # Manually define standard scaler values (replace with your model training scaler)
+        # Default scaling values (replace with your model training scaler)
         scaler.mean_ = [650, 1, 0, 35, 5, 50000, 1, 0, 0, 60000]
         scaler.scale_ = [100, 1, 1, 20, 3, 20000, 1, 1, 1, 30000]
 
-    # Scale manual input using the scaler
+    # Scale manual input and ensure correct shape
     manual_input_scaled = scaler.transform(manual_input)
+    manual_input_scaled = manual_input_scaled.reshape(1, -1)  # Force shape (1, 10)
+
+    # Make prediction
     prediction = model.predict(manual_input_scaled)
     
-    st.success(f"Prediction: {'Churn' if prediction[0][0] == 1 else 'No Churn'}")
+    st.success(f"Prediction: {'Churn' if prediction[0][0] >= 0.5 else 'No Churn'}")
