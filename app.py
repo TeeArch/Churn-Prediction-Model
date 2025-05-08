@@ -11,7 +11,8 @@ model = load_model('model.h5')
 st.set_page_config(page_title="Churn Prediction with ANN", layout="centered")
 st.title("📊 Churn Prediction with ANN")
 
-# File Upload
+# File Upload Section
+st.subheader("Upload your CSV file for prediction")
 uploaded_file = st.file_uploader("Upload your CSV file for prediction", type=["csv"])
 
 def predict_churn(data):
@@ -20,15 +21,17 @@ def predict_churn(data):
     predictions = model.predict(data_scaled)
     return (predictions >= 0.5).astype(int)
 
+# If CSV File is Uploaded
 if uploaded_file is not None:
     try:
         data = pd.read_csv(uploaded_file)
-        st.write("### Uploaded Data", data.head())
+        st.write("### Uploaded Data Preview", data.head())
 
         features = data[['CreditScore', 'Geography', 'Gender', 'Age', 'Tenure',
                          'Balance', 'NumOfProducts', 'HasCrCard',
                          'IsActiveMember', 'EstimatedSalary']]
         
+        # Encoding categorical values
         features['Geography'] = features['Geography'].astype('category').cat.codes
         features['Gender'] = features['Gender'].map({'Male': 1, 'Female': 0})
 
@@ -42,4 +45,36 @@ if uploaded_file is not None:
         st.error(f"Error: {str(e)}")
 
 else:
-    st.info("Please upload a CSV file.")
+    st.info("Please upload a CSV file for batch prediction.")
+
+# Divider for Manual Entry
+st.markdown("---")
+st.subheader("Or enter customer details manually")
+
+with st.form("manual_input_form"):
+    CreditScore = st.number_input("Credit Score", min_value=300, max_value=900, value=650)
+    Geography = st.selectbox("Geography", ["France", "Spain", "Germany"])
+    Gender = st.selectbox("Gender", ["Male", "Female"])
+    Age = st.number_input("Age", min_value=18, max_value=100, value=35)
+    Tenure = st.slider("Tenure", 0, 10, 5)
+    Balance = st.number_input("Balance", value=50000.0)
+    NumOfProducts = st.selectbox("Number of Products", [1, 2, 3, 4])
+    HasCrCard = st.selectbox("Has Credit Card", [0, 1])
+    IsActiveMember = st.selectbox("Is Active Member", [0, 1])
+    EstimatedSalary = st.number_input("Estimated Salary", value=60000.0)
+
+    submit = st.form_submit_button("Predict Churn")
+
+if submit:
+    # Encode categorical values
+    Geography_code = {"France": 0, "Germany": 1, "Spain": 2}[Geography]
+    Gender_code = {"Male": 1, "Female": 0}[Gender]
+
+    # Create DataFrame for manual input
+    manual_input = pd.DataFrame([[CreditScore, Geography_code, Gender_code, Age, Tenure,
+                                  Balance, NumOfProducts, HasCrCard, IsActiveMember, EstimatedSalary]],
+                                columns=['CreditScore', 'Geography', 'Gender', 'Age', 'Tenure',
+                                         'Balance', 'NumOfProducts', 'HasCrCard', 'IsActiveMember', 'EstimatedSalary'])
+    
+    prediction = predict_churn(manual_input)
+    st.success(f"Prediction: {'Churn' if prediction[0][0] == 1 else 'No Churn'}")
